@@ -21,7 +21,16 @@ class Transaction extends HiveObject {
   DateTime date;
 
   @HiveField(5)
-  String? accountId; // Rendu optionnel pour éviter les crashs sur anciennes données
+  String? accountId;
+
+  @HiveField(6)
+  String category; // SALE, PURCHASE, CLIENT_PAYMENT, EXPENSE, REFUND
+
+  @HiveField(7)
+  String? referenceId; // ID de la vente, de l'achat ou du besoin lié
+
+  @HiveField(8)
+  String? personId; // ID du Client ou du Fournisseur lié
 
   Transaction({
     required this.id,
@@ -29,7 +38,10 @@ class Transaction extends HiveObject {
     required this.amount,
     required this.description,
     required this.date,
+    required this.category,
     this.accountId,
+    this.referenceId,
+    this.personId,
   });
 
   factory Transaction.fromMap(Map<String, dynamic> map) {
@@ -39,7 +51,10 @@ class Transaction extends HiveObject {
       amount: map['amount'],
       description: map['description'],
       date: DateTime.parse(map['date']),
+      category: map['category'] ?? 'EXPENSE',
       accountId: map['accountId'],
+      referenceId: map['referenceId'],
+      personId: map['personId'],
     );
   }
 
@@ -50,7 +65,10 @@ class Transaction extends HiveObject {
       'amount': amount,
       'description': description,
       'date': date.toIso8601String(),
+      'category': category,
       'accountId': accountId,
+      'referenceId': referenceId,
+      'personId': personId,
     };
   }
 }

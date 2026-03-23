@@ -13,16 +13,38 @@ class SupplierPage extends StatefulWidget {
 
 class _SupplierPageState extends State<SupplierPage> {
   late List<Supplier> _suppliers;
+  List<Supplier> _filteredSuppliers = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadSuppliers();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _filteredSuppliers = _suppliers
+          .where((supplier) => supplier.name.toLowerCase().contains(_searchController.text.toLowerCase()))
+          .toList();
+    });
   }
 
   void _loadSuppliers() {
     setState(() {
       _suppliers = widget.supplierService.getAllSuppliers();
+      _filteredSuppliers = _suppliers;
+      if (_searchController.text.isNotEmpty) {
+        _onSearchChanged();
+      }
     });
   }
 
@@ -170,16 +192,46 @@ class _SupplierPageState extends State<SupplierPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      body: _suppliers.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _suppliers.length,
-              itemBuilder: (context, index) {
-                final supplier = _suppliers[index];
-                return _buildSupplierCard(supplier);
-              },
+      appBar: AppBar(
+        title: const Text('Fournisseurs', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un fournisseur...',
+                hintStyle: const TextStyle(color: Colors.white38),
+                prefixIcon: const Icon(Icons.search, color: Colors.cyanAccent),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
             ),
+          ),
+          Expanded(
+            child: _filteredSuppliers.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filteredSuppliers.length,
+                    itemBuilder: (context, index) {
+                      final supplier = _filteredSuppliers[index];
+                      return _buildSupplierCard(supplier);
+                    },
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showSupplierDialog(),
         backgroundColor: Colors.cyanAccent,
@@ -269,9 +321,16 @@ class _SupplierPageState extends State<SupplierPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.business_outlined, size: 80, color: Colors.white.withValues(alpha: 0.2)),
+            Icon(
+              _searchController.text.isEmpty ? Icons.business_outlined : Icons.search_off,
+              size: 80, 
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
             const SizedBox(height: 16),
-            const Text("Aucun fournisseur enregistré", style: TextStyle(color: Colors.white54)),
+            Text(
+              _searchController.text.isEmpty ? "Aucun fournisseur enregistré" : "Aucun fournisseur trouvé pour \"${_searchController.text}\"",
+              style: const TextStyle(color: Colors.white54),
+            ),
           ],
         ),
       ),

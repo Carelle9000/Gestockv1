@@ -6,6 +6,7 @@ import '../suppliers/supplier_page.dart';
 import '../sales/sales_page.dart';
 import '../purchase/purchase_page.dart';
 import '../transaction/transaction_page.dart';
+import '../transaction/accounts_page.dart';
 import '../auth/profile_page.dart';
 import 'dashboard_page.dart';
 import '../../core/stock/product_service.dart';
@@ -52,7 +53,13 @@ class _MainLayoutState extends State<MainLayout> {
   void initState() {
     super.initState();
     _pages = [
-      const DashboardPage(),
+      DashboardPage(
+        productService: widget.productService,
+        salesService: widget.salesService,
+        clientRepository: widget.clientRepository,
+        authService: widget.authService,
+        transactionService: widget.transactionService,
+      ),
       ProductPage(productService: widget.productService),
       ClientPage(clientRepository: widget.clientRepository),
       NeedPage(needService: widget.needService),
@@ -73,6 +80,7 @@ class _MainLayoutState extends State<MainLayout> {
         transactionService: widget.transactionService,
         needService: widget.needService,
       ),
+      AccountsPage(transactionService: widget.transactionService),
       ProfilePage(authService: widget.authService),
     ];
   }
@@ -121,7 +129,8 @@ class _MainLayoutState extends State<MainLayout> {
             _buildDrawerItem(5, Icons.shopping_cart_outlined, 'Ventes'),
             _buildDrawerItem(6, Icons.add_business_outlined, 'Achats'),
             _buildDrawerItem(7, Icons.receipt_long_outlined, 'Transactions'),
-            _buildDrawerItem(8, Icons.person_outline, 'Mon Profil'),
+            _buildDrawerItem(8, Icons.account_balance_wallet_outlined, 'Comptes & Caisse'),
+            _buildDrawerItem(9, Icons.person_outline, 'Mon Profil'),
             const Divider(color: Colors.white12),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),

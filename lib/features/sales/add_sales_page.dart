@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/sales/sales_service.dart';
 import '../../core/stock/product_service.dart';
 import '../../core/transaction/transaction_service.dart';
+import '../../core/notification/notification_service.dart';
 import '../../repositories/client_repository.dart';
 import '../../shared/models/product.dart';
 import '../../shared/models/client.dart';
@@ -31,6 +32,7 @@ class _AddSalesPageState extends State<AddSalesPage> {
   final List<Map<String, dynamic>> _cart = [];
   String _selectedPaymentMethod = 'Espèces';
   String _searchQuery = '';
+  bool _isSubmitting = false;
   final TextEditingController _searchController = TextEditingController();
 
   final List<String> _paymentMethods = [
@@ -46,17 +48,13 @@ class _AddSalesPageState extends State<AddSalesPage> {
         if (_cart[index]['quantity'] < product.quantity) {
           _cart[index]['quantity']++;
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Stock insuffisant')),
-          );
+          NotificationService.showSnackBar(context, 'Stock insuffisant pour ${product.name}', isError: true);
         }
       } else {
         if (product.quantity > 0) {
           _cart.add({'product': product, 'quantity': 1});
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Produit en rupture de stock')),
-          );
+          NotificationService.showSnackBar(context, 'Produit en rupture de stock !', isError: true);
         }
       }
     });
@@ -80,45 +78,43 @@ class _AddSalesPageState extends State<AddSalesPage> {
   }
 
   Future<void> _submitSale() async {
+    if (_isSubmitting) return;
+
     if (_selectedClient == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un client')),
-      );
+      NotificationService.showSnackBar(context, 'Veuillez sélectionner un client', isError: true);
       return;
     }
     if (_selectedAccount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un compte d\'encaissement')),
-      );
+      NotificationService.showSnackBar(context, 'Veuillez sélectionner un compte d\'encaissement', isError: true);
       return;
     }
     if (_cart.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le panier est vide')),
-      );
+      NotificationService.showSnackBar(context, 'Le panier est vide', isError: true);
       return;
     }
 
-    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isSubmitting = true);
     final navigator = Navigator.of(context);
 
     try {
       await widget.salesService.createSale(
         clientId: _selectedClient!.id,
         paymentMethod: _selectedPaymentMethod,
-        items: _cart,
+        items: List.from(_cart),
         accountId: _selectedAccount!.id,
       );
+      
       if (mounted) {
         navigator.pop(true);
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Vente enregistrée avec succès')),
-        );
+        NotificationService.showSnackBar(context, 'Vente enregistrée avec succès');
       }
     } catch (e) {
+      setState(() => _isSubmitting = false);
       if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+        NotificationService.showErrorDialog(
+          context, 
+          title: 'Erreur de Vente', 
+          desc: e.toString()
         );
       }
     }
@@ -145,7 +141,6 @@ class _AddSalesPageState extends State<AddSalesPage> {
       ),
       body: Column(
         children: [
-          // 1. Sélection Client, Paiement et Compte
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Column(
@@ -155,21 +150,29 @@ class _AddSalesPageState extends State<AddSalesPage> {
                     Expanded(
                       flex: 2,
                       child: DropdownButtonFormField<Client>(
+                        isExpanded: true,
                         dropdownColor: const Color(0xFF1E293B),
                         decoration: _inputDecoration('Client', Icons.person_outline),
                         initialValue: _selectedClient,
-                        items: clients.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+                        items: clients.map((c) => DropdownMenuItem(
+                          value: c, 
+                          child: Text(c.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))
+                        )).toList(),
                         onChanged: (val) => setState(() => _selectedClient = val),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
                       flex: 1,
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         dropdownColor: const Color(0xFF1E293B),
-                        decoration: _inputDecoration('Paiement', Icons.payment),
+                        decoration: _inputDecoration('Pay.', Icons.payment),
                         initialValue: _selectedPaymentMethod,
-                        items: _paymentMethods.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(fontSize: 12)))).toList(),
+                        items: _paymentMethods.map((m) => DropdownMenuItem(
+                          value: m, 
+                          child: Text(m, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))
+                        )).toList(),
                         onChanged: (val) => setState(() => _selectedPaymentMethod = val!),
                       ),
                     ),
@@ -177,17 +180,20 @@ class _AddSalesPageState extends State<AddSalesPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<Account>(
+                  isExpanded: true,
                   dropdownColor: const Color(0xFF1E293B),
                   decoration: _inputDecoration('Compte d\'encaissement', Icons.account_balance_wallet),
                   initialValue: _selectedAccount,
-                  items: accounts.map((acc) => DropdownMenuItem(value: acc, child: Text('${acc.name} (${acc.balance.toStringAsFixed(0)} FCFA)'))).toList(),
+                  items: accounts.map((acc) => DropdownMenuItem(
+                    value: acc, 
+                    child: Text('${acc.name} (${acc.balance.toStringAsFixed(0)} FCFA)', overflow: TextOverflow.ellipsis)
+                  )).toList(),
                   onChanged: (val) => setState(() => _selectedAccount = val),
                 ),
               ],
             ),
           ),
 
-          // 2. Barre de Recherche de Produits
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -208,20 +214,19 @@ class _AddSalesPageState extends State<AddSalesPage> {
                     )
                   : null,
                 filled: true,
+                isDense: true,
                 fillColor: Colors.white.withAlpha(13),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
               ),
             ),
           ),
 
-          // 3. Liste des produits filtrés ou Panier
           Expanded(
             child: _searchQuery.isNotEmpty 
               ? _buildProductSearchResults(filteredProducts)
               : _buildCartList(),
           ),
 
-          // 4. Résumé et Bouton
           Container(
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
@@ -245,14 +250,17 @@ class _AddSalesPageState extends State<AddSalesPage> {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: _submitSale,
+                  onPressed: _isSubmitting ? null : _submitSale,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.cyanAccent,
                     foregroundColor: Colors.black,
+                    disabledBackgroundColor: Colors.white10,
                     minimumSize: const Size(double.infinity, 55),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
-                  child: const Text('VALIDER LA VENTE', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: _isSubmitting 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                    : const Text('VALIDER LA VENTE', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -327,9 +335,10 @@ class _AddSalesPageState extends State<AddSalesPage> {
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
+      isDense: true,
       labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
-      prefixIcon: Icon(icon, color: Colors.cyanAccent, size: 20),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      prefixIcon: Icon(icon, color: Colors.cyanAccent, size: 18),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white12)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
     );

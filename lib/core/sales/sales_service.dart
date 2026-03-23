@@ -71,10 +71,13 @@ class SalesService {
     final transaction = Transaction(
       id: 'TR-SALE-$saleId',
       type: 'INCOME',
+      category: 'SALE',
       amount: totalAmount,
       description: 'Vente #$saleId ($paymentMethod)',
       date: DateTime.now(),
       accountId: accountId,
+      referenceId: saleId,
+      personId: clientId,
     );
     await _transactionRepository.add(transaction.id, transaction);
 

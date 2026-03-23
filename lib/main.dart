@@ -33,6 +33,7 @@ import 'core/transaction/transaction_service.dart';
 import 'core/database/database_seed_service.dart';
 import 'features/auth/login_page.dart';
 import 'features/auth/register_page.dart';
+import 'features/dashboard/main_layout.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -82,6 +83,7 @@ Future<void> main() async {
     supplierRepository: supplierRepository,
     clientRepository: clientRepository,
     userRepository: userRepository,
+    accountRepository: accountRepository,
   );
   await seedService.seedAll();
 
@@ -171,17 +173,20 @@ class GestockApp extends StatelessWidget {
         Locale('en', 'US'),
       ],
       locale: const Locale('fr', 'FR'),
-      home: GestockSplashScreen(
-        authService: authService, 
-        isFirebaseEnabled: isFirebaseInitialized,
-        productService: productService,
-        clientRepository: clientRepository,
-        needService: needService,
-        supplierService: supplierService,
-        salesService: salesService,
-        purchaseService: purchaseService,
-        transactionService: transactionService,
-      ),
+      routes: {
+        '/': (context) => GestockSplashScreen(
+          authService: authService, 
+          isFirebaseEnabled: isFirebaseInitialized,
+          productService: productService,
+          clientRepository: clientRepository,
+          needService: needService,
+          supplierService: supplierService,
+          salesService: salesService,
+          purchaseService: purchaseService,
+          transactionService: transactionService,
+        ),
+      },
+      initialRoute: '/',
     );
   }
 }
@@ -224,6 +229,32 @@ class _GestockSplashScreenState extends State<GestockSplashScreen>
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    // Petit délai pour l'effet visuel du splash
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    final user = await widget.authService.checkAuthState();
+    if (user != null && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MainLayout(
+            productService: widget.productService,
+            clientRepository: widget.clientRepository,
+            needService: widget.needService,
+            authService: widget.authService,
+            supplierService: widget.supplierService,
+            salesService: widget.salesService,
+            purchaseService: widget.purchaseService,
+            transactionService: widget.transactionService,
+          ),
+        ),
+      );
+    }
   }
 
   @override

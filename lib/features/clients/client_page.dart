@@ -13,16 +13,38 @@ class ClientPage extends StatefulWidget {
 
 class _ClientPageState extends State<ClientPage> {
   late List<Client> _clients;
+  List<Client> _filteredClients = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadClients();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _filteredClients = _clients
+          .where((client) => client.name.toLowerCase().contains(_searchController.text.toLowerCase()))
+          .toList();
+    });
   }
 
   void _loadClients() {
     setState(() {
       _clients = widget.clientRepository.getAll();
+      _filteredClients = _clients;
+      if (_searchController.text.isNotEmpty) {
+        _onSearchChanged();
+      }
     });
   }
 
@@ -36,9 +58,10 @@ class _ClientPageState extends State<ClientPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          isEditing ? 'Modifier le client' : 'Ajouter un client',
-          style: const TextStyle(color: Colors.white),
+          isEditing ? 'Modifier le client' : 'Nouveau client',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -87,11 +110,18 @@ class _ClientPageState extends State<ClientPage> {
                 _loadClients();
                 navigator.pop();
                 messenger.showSnackBar(
-                  SnackBar(content: Text(isEditing ? 'Client mis à jour' : 'Client ajouté')),
+                  SnackBar(
+                    content: Text(isEditing ? 'Client mis à jour' : 'Client ajouté'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.cyanAccent,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: Text(isEditing ? 'ENREGISTRER' : 'AJOUTER'),
           ),
         ],
@@ -108,6 +138,8 @@ class _ClientPageState extends State<ClientPage> {
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white70),
         prefixIcon: Icon(icon, color: Colors.cyanAccent),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.05),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Colors.white12),
@@ -125,6 +157,7 @@ class _ClientPageState extends State<ClientPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Supprimer le client', style: TextStyle(color: Colors.white)),
         content: Text('Voulez-vous vraiment supprimer "${client.name}" ?', style: const TextStyle(color: Colors.white70)),
         actions: [
@@ -138,10 +171,13 @@ class _ClientPageState extends State<ClientPage> {
               Navigator.pop(dialogContext);
               _loadClients();
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Client ${client.name} supprimé')),
+                SnackBar(
+                  content: Text('Client ${client.name} supprimé'),
+                  behavior: SnackBarBehavior.floating,
+                ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             child: const Text('SUPPRIMER', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -153,20 +189,51 @@ class _ClientPageState extends State<ClientPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      body: _clients.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _clients.length,
-              itemBuilder: (context, index) {
-                final client = _clients[index];
-                return _buildClientCard(client);
-              },
+      appBar: AppBar(
+        title: const Text('Gestion des Clients', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un client...',
+                hintStyle: const TextStyle(color: Colors.white38),
+                prefixIcon: const Icon(Icons.search, color: Colors.cyanAccent),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
             ),
-      floatingActionButton: FloatingActionButton(
+          ),
+          Expanded(
+            child: _filteredClients.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filteredClients.length,
+                    itemBuilder: (context, index) {
+                      final client = _filteredClients[index];
+                      return _buildClientCard(client);
+                    },
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showClientDialog(),
         backgroundColor: Colors.cyanAccent,
-        child: const Icon(Icons.person_add, color: Colors.black),
+        icon: const Icon(Icons.person_add_alt_1, color: Colors.black),
+        label: const Text('NOUVEAU CLIENT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -236,9 +303,16 @@ class _ClientPageState extends State<ClientPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people_outline, size: 80, color: Colors.white.withValues(alpha: 0.2)),
+            Icon(
+              _searchController.text.isEmpty ? Icons.people_outline : Icons.search_off,
+              size: 80,
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
             const SizedBox(height: 16),
-            const Text("Aucun client enregistré", style: TextStyle(color: Colors.white54)),
+            Text(
+              _searchController.text.isEmpty ? "Aucun client enregistré" : "Aucun client trouvé pour \"${_searchController.text}\"",
+              style: const TextStyle(color: Colors.white54),
+            ),
           ],
         ),
       ),

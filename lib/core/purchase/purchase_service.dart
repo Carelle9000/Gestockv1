@@ -1,5 +1,5 @@
 import '../../shared/models/purchase.dart';
-import '../../shared/models/product.dart';
+//import '../../shared/models/product.dart';
 import '../../shared/models/transaction.dart';
 import '../../repositories/purchase_repository.dart';
 import '../../repositories/product_repository.dart';
@@ -24,7 +24,11 @@ class PurchaseService {
 
   // --- CRUD Opérations ---
 
-  List<Purchase> getAllPurchases() => _purchaseRepository.getAll();
+  List<Purchase> getAllPurchases() {
+    final purchases = List<Purchase>.from(_purchaseRepository.getAll());
+    purchases.sort((a, b) => b.date.compareTo(a.date));
+    return purchases;
+  }
 
   Future<void> deletePurchase(String id) async {
     await _purchaseRepository.delete(id);
@@ -34,38 +38,47 @@ class PurchaseService {
 
   Future<void> processPurchase({
     required Purchase purchase,
-    required Map<Product, int> productsPurchased,
+    required Map<String, int> productQuantities, // ID du produit -> Quantité
     required String accountId,
   }) async {
     // 1. Vérifier le compte
     final account = _accountRepository.get(accountId);
     if (account == null) throw Exception("Compte introuvable");
+    
     if (account.balance < purchase.totalAmount) {
-      throw Exception("Solde insuffisant sur le compte ${account.name}");
+      throw Exception("Solde insuffisant sur le compte ${account.name} (${account.balance} FCFA)");
     }
 
-    // 2. Enregistrer l'achat
+    // 2. Mettre à jour le stock pour chaque produit
+    for (var entry in productQuantities.entries) {
+      final productId = entry.key;
+      final quantityToAdd = entry.value;
+      
+      final product = _productRepository.get(productId);
+      if (product != null) {
+        product.quantity += quantityToAdd;
+        await _productRepository.update(product.id, product);
+      }
+    }
+
+    // 3. Enregistrer l'achat
     await _purchaseRepository.add(purchase.id, purchase);
 
-    // 3. Mettre à jour le stock
-    for (var entry in productsPurchased.entries) {
-      final product = entry.key;
-      product.quantity += entry.value;
-      await _productRepository.update(product.id, product);
-    }
-
-    // 4. Créer la transaction de dépense
+    // 4. Créer la transaction automatique de dépense
     final transaction = Transaction(
       id: 'TR-PUR-${purchase.id}',
       type: 'EXPENSE',
+      category: 'PURCHASE',
       amount: purchase.totalAmount,
-      description: 'Achat chez fournisseur (ID: ${purchase.supplierId})',
+      description: 'Achat fournisseur #${purchase.id}',
       date: purchase.date,
       accountId: accountId,
+      referenceId: purchase.id,
+      personId: purchase.supplierId,
     );
     await _transactionRepository.add(transaction.id, transaction);
 
-    // 5. Mettre à jour le solde du compte
+    // 5. Mettre à jour le solde du compte (Débit)
     account.balance -= purchase.totalAmount;
     await _accountRepository.update(account.id, account);
   }

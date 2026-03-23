@@ -20,12 +20,16 @@ class Purchase extends HiveObject {
   @HiveField(4)
   String status;
 
+  @HiveField(5)
+  String? receiptImagePath; // Chemin de l'image du bon fournisseur
+
   Purchase({
     required this.id,
     required this.supplierId,
     required this.date,
     required this.totalAmount,
     required this.status,
+    this.receiptImagePath,
   });
 
   factory Purchase.fromMap(Map<String, dynamic> map) {
@@ -35,6 +39,7 @@ class Purchase extends HiveObject {
       date: DateTime.parse(map['date']),
       totalAmount: map['totalAmount'],
       status: map['status'],
+      receiptImagePath: map['receiptImagePath'],
     );
   }
 
@@ -45,6 +50,7 @@ class Purchase extends HiveObject {
       'date': date.toIso8601String(),
       'totalAmount': totalAmount,
       'status': status,
+      'receiptImagePath': receiptImagePath,
     };
   }
 }

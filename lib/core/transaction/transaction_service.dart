@@ -45,10 +45,12 @@ class TransactionService {
     final transaction = Transaction(
       id: 'TR-NEED-${need.id}-${DateTime.now().millisecondsSinceEpoch}',
       type: 'EXPENSE',
+      category: 'EXPENSE',
       amount: need.estimatedCost,
       description: 'Paiement du besoin: ${need.title}',
       date: DateTime.now(),
       accountId: accountId,
+      referenceId: need.id,
     );
 
     await addTransaction(transaction);

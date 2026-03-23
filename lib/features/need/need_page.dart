@@ -14,6 +14,8 @@ class NeedPage extends StatefulWidget {
 
 class _NeedPageState extends State<NeedPage> {
   late List<Need> _needs;
+  List<Need> _filteredNeeds = [];
+  final TextEditingController _searchController = TextEditingController();
   final _currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0);
   final _dateFormat = DateFormat('dd/MM/yyyy');
 
@@ -21,11 +23,31 @@ class _NeedPageState extends State<NeedPage> {
   void initState() {
     super.initState();
     _loadNeeds();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _filteredNeeds = _needs
+          .where((need) => need.title.toLowerCase().contains(_searchController.text.toLowerCase()))
+          .toList();
+    });
   }
 
   void _loadNeeds() {
     setState(() {
       _needs = widget.needService.getAllNeeds();
+      _filteredNeeds = _needs;
+      if (_searchController.text.isNotEmpty) {
+        _onSearchChanged();
+      }
     });
   }
 
@@ -37,12 +59,13 @@ class _NeedPageState extends State<NeedPage> {
         final scaffoldMessenger = ScaffoldMessenger.of(context);
         return AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
-          title: const Text('Supprimer le besoin', style: TextStyle(color: Colors.white)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Supprimer le besoin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           content: Text('Voulez-vous vraiment supprimer "${need.title}" ?', style: const TextStyle(color: Colors.white70)),
           actions: [
             TextButton(
               onPressed: () => navigator.pop(),
-              child: const Text('ANNULER', style: TextStyle(color: Colors.white54)),
+              child: Text('ANNULER', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -51,11 +74,17 @@ class _NeedPageState extends State<NeedPage> {
                   navigator.pop();
                   _loadNeeds();
                   scaffoldMessenger.showSnackBar(
-                    SnackBar(content: Text('Besoin "${need.title}" supprimé')),
+                    SnackBar(
+                      content: Text('Besoin "${need.title}" supprimé'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
                   );
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               child: const Text('SUPPRIMER', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -84,20 +113,61 @@ class _NeedPageState extends State<NeedPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      body: _needs.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _needs.length,
-              itemBuilder: (context, index) {
-                final need = _needs[index];
-                return _buildNeedCard(need);
-              },
+      appBar: AppBar(
+        title: const Text('Gestion des Besoins', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un besoin...',
+                hintStyle: const TextStyle(color: Colors.white38),
+                prefixIcon: const Icon(Icons.search, color: Colors.cyanAccent),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
             ),
-      floatingActionButton: FloatingActionButton(
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'LISTE DES BESOINS',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _filteredNeeds.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filteredNeeds.length,
+                    itemBuilder: (context, index) {
+                      final need = _filteredNeeds[index];
+                      return _buildNeedCard(need);
+                    },
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _navigateToForm(),
         backgroundColor: Colors.cyanAccent,
-        child: const Icon(Icons.add, color: Colors.black),
+        icon: const Icon(Icons.add_task, color: Colors.black),
+        label: const Text('NOUVEAU BESOIN', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -112,6 +182,7 @@ class _NeedPageState extends State<NeedPage> {
         statusColor = Colors.redAccent;
         break;
       case 'Terminé':
+      case 'Payé':
         statusColor = Colors.blueAccent;
         break;
       default:
@@ -121,15 +192,10 @@ class _NeedPageState extends State<NeedPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.blue.withValues(alpha: 0.1),
-            Colors.white.withValues(alpha: 0.05),
-          ],
-        ),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: statusColor.withValues(alpha: 0.3),
+          color: statusColor.withValues(alpha: 0.2),
         ),
       ),
       child: InkWell(
@@ -209,7 +275,7 @@ class _NeedPageState extends State<NeedPage> {
               Column(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.cyanAccent, size: 20),
+                    icon: const Icon(Icons.edit_outlined, color: Colors.cyanAccent, size: 20),
                     onPressed: () => _navigateToForm(need: need),
                     constraints: const BoxConstraints(),
                     padding: const EdgeInsets.all(8),
@@ -234,9 +300,16 @@ class _NeedPageState extends State<NeedPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.assignment_outlined, size: 80, color: Colors.white.withValues(alpha: 0.2)),
+          Icon(
+            _searchController.text.isEmpty ? Icons.assignment_outlined : Icons.search_off,
+            size: 80, 
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
-          const Text("Aucun besoin enregistré", style: TextStyle(color: Colors.white54)),
+          Text(
+            _searchController.text.isEmpty ? "Aucun besoin enregistré" : "Aucun besoin trouvé pour \"${_searchController.text}\"",
+            style: const TextStyle(color: Colors.white54),
+          ),
         ],
       ),
     );
